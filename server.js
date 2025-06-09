@@ -1,26 +1,49 @@
-const express = require("express");
-const Stripe = require("stripe");
-const cors = require("cors");
-require("dotenv").config();
+import express from 'express';
+import dotenv from 'dotenv';
+import Stripe from 'stripe';
+import cors from 'cors';
+
+// Load .env file
+dotenv.config();
 
 const app = express();
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const PORT = process.env.PORT || 10000;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 app.use(cors());
 app.use(express.json());
 
-app.post("/create-payment-intent", async (req, res) => {
+// Payment endpoint
+app.post('/create-payment-intent', async (req, res) => {
   try {
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: req.body.amount, // dynamic amount
-      currency: "inr",
-      payment_method_types: ["card"],
+      amount,
+      currency: 'usd',
+      automatic_payment_methods: {
+        enabled: true,
+      },
     });
 
-    res.json({ clientSecret: paymentIntent.client_secret });
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
   } catch (error) {
-    res.status(500).send({ error: error.message });
+    console.error('Error creating payment intent:', error);
+    res.status(500).json({ error: 'Something went wrong' });
   }
 });
 
-app.listen(10000, () => console.log("Server is running on port 10000"));
+// Root for testing
+app.get('/', (req, res) => {
+  res.send('Stripe backend is running!');
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server listening on port ${PORT}`);
+});
